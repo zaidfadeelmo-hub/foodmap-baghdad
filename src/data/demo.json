@@ -1,0 +1,169 @@
+{
+  "city": { "slug": "baghdad", "name_ar": "بغداد", "name_en": "Baghdad", "lat": 33.3152, "lng": 44.3661, "zoom": 12 },
+  "otherCities": [
+    { "slug": "basra", "name_ar": "البصرة", "name_en": "Basra", "lat": 30.5085, "lng": 47.7804 },
+    { "slug": "mosul", "name_ar": "الموصل", "name_en": "Mosul", "lat": 36.335, "lng": 43.1189 },
+    { "slug": "erbil", "name_ar": "أربيل", "name_en": "Erbil", "lat": 36.1911, "lng": 44.0092 },
+    { "slug": "najaf", "name_ar": "النجف", "name_en": "Najaf", "lat": 32.0, "lng": 44.335 },
+    { "slug": "karbala", "name_ar": "كربلاء", "name_en": "Karbala", "lat": 32.616, "lng": 44.0249 },
+    { "slug": "sulaymaniyah", "name_ar": "السليمانية", "name_en": "Sulaymaniyah", "lat": 35.5558, "lng": 45.4351 },
+    { "slug": "kirkuk", "name_ar": "كركوك", "name_en": "Kirkuk", "lat": 35.4681, "lng": 44.3922 },
+    { "slug": "duhok", "name_ar": "دهوك", "name_en": "Duhok", "lat": 36.8679, "lng": 42.9503 }
+  ],
+  "areas": [
+    { "slug": "karrada", "name_ar": "الكرادة", "lat": 33.301, "lng": 44.429 },
+    { "slug": "mansour", "name_ar": "المنصور", "lat": 33.317, "lng": 44.348 },
+    { "slug": "jadriyah", "name_ar": "الجادرية", "lat": 33.279, "lng": 44.378 },
+    { "slug": "adhamiyah", "name_ar": "الأعظمية", "lat": 33.368, "lng": 44.375 },
+    { "slug": "kadhimiya", "name_ar": "الكاظمية", "lat": 33.379, "lng": 44.34 },
+    { "slug": "zayouna", "name_ar": "زيونة", "lat": 33.333, "lng": 44.458 },
+    { "slug": "harthiya", "name_ar": "الحارثية", "lat": 33.325, "lng": 44.356 },
+    { "slug": "arasat", "name_ar": "العرصات", "lat": 33.305, "lng": 44.401 },
+    { "slug": "yarmouk", "name_ar": "اليرموك", "lat": 33.301, "lng": 44.342 },
+    { "slug": "dora", "name_ar": "الدورة", "lat": 33.242, "lng": 44.372 }
+  ],
+  "cuisines": [
+    { "slug": "iraqi", "name_ar": "عراقي", "icon": "🍛" },
+    { "slug": "grills", "name_ar": "مشاوي", "icon": "🍢" },
+    { "slug": "masgouf", "name_ar": "سمك مسكوف", "icon": "🐟" },
+    { "slug": "burger", "name_ar": "برغر", "icon": "🍔" },
+    { "slug": "pizza", "name_ar": "بيتزا", "icon": "🍕" },
+    { "slug": "italian", "name_ar": "إيطالي", "icon": "🍝" },
+    { "slug": "levantine", "name_ar": "شرقي", "icon": "🥙" },
+    { "slug": "asian", "name_ar": "آسيوي", "icon": "🍜" },
+    { "slug": "breakfast", "name_ar": "فطور", "icon": "🍳" },
+    { "slug": "dessert", "name_ar": "حلويات", "icon": "🍰" },
+    { "slug": "coffee", "name_ar": "قهوة مختصة", "icon": "☕" },
+    { "slug": "healthy", "name_ar": "صحي", "icon": "🥗" }
+  ],
+  "restaurants": [
+    {
+      "slug": "demo-dijla-banks", "name_ar": "ضفاف دجلة", "name_en": "Dijla Banks", "kind": "restaurant",
+      "area": "jadriyah", "cuisines": ["masgouf", "iraqi"], "price": 3,
+      "address": "الجادرية — موقع تقريبي (بيانات تجريبية)", "lat": 33.2812, "lng": 44.3815,
+      "hours": "يومياً ١٢ ظهراً – ١٢ ليلاً (تجريبي)",
+      "description": "مطعم تجريبي لعرض شكل الصفحة: مسكوف ومقبلات عراقية وجلسات مطلة على النهر. هذه البيانات للتصميم فقط وليست لمطعم حقيقي.",
+      "reviews": [ { "rating": 5, "comment": "مراجعة تجريبية: أجواء جميلة وخدمة سريعة." }, { "rating": 4, "comment": "مراجعة تجريبية: الأسعار مناسبة للجودة." } ]
+    },
+    {
+      "slug": "demo-asil-grills", "name_ar": "مشاوي الأصيل", "name_en": "Al-Aseel Grills", "kind": "restaurant",
+      "area": "karrada", "cuisines": ["grills", "iraqi"], "price": 2,
+      "address": "الكرادة — موقع تقريبي (بيانات تجريبية)", "lat": 33.3032, "lng": 44.4262,
+      "hours": "يومياً ١٢ ظهراً – ١١ ليلاً (تجريبي)",
+      "description": "مطعم مشاوي تجريبي: كباب وتكة ولحم مشوي مع خبز تنور. بيانات تجريبية لعرض التصميم.",
+      "reviews": [ { "rating": 5, "comment": "مراجعة تجريبية: كباب مميز." }, { "rating": 4, "comment": "مراجعة تجريبية: يستحق التجربة." }, { "rating": 4, "comment": "مراجعة تجريبية: ازدحام وقت الغداء." } ]
+    },
+    {
+      "slug": "demo-fajr-cafe", "name_ar": "كافيه الفجر", "name_en": "Fajr Cafe", "kind": "cafe",
+      "area": "mansour", "cuisines": ["coffee", "dessert"], "price": 2,
+      "address": "المنصور — موقع تقريبي (بيانات تجريبية)", "lat": 33.3141, "lng": 44.3512,
+      "hours": "يومياً ٨ صباحاً – ١٢ ليلاً (تجريبي)",
+      "description": "كافيه تجريبي للقهوة المختصة والحلويات، مناسب للدراسة والعمل. بيانات تجريبية.",
+      "reviews": [ { "rating": 5, "comment": "مراجعة تجريبية: قهوة ممتازة وجلسة هادئة." }, { "rating": 5, "comment": "مراجعة تجريبية: حلويات طازجة." } ]
+    },
+    {
+      "slug": "demo-burger-station", "name_ar": "برغر ستيشن", "name_en": "Burger Station", "kind": "restaurant",
+      "area": "zayouna", "cuisines": ["burger"], "price": 2,
+      "address": "زيونة — موقع تقريبي (بيانات تجريبية)", "lat": 33.336, "lng": 44.461,
+      "hours": "يومياً ١ ظهراً – ٢ ليلاً (تجريبي)",
+      "description": "مطعم برغر تجريبي بوجبات سريعة وصوصات خاصة. بيانات تجريبية لعرض التصميم.",
+      "reviews": [ { "rating": 4, "comment": "مراجعة تجريبية: برغر لذيذ وحجم جيد." }, { "rating": 3, "comment": "مراجعة تجريبية: التوصيل تأخر قليلاً." } ]
+    },
+    {
+      "slug": "demo-iraqi-kitchen", "name_ar": "بيت الطبخ العراقي", "name_en": "Iraqi Home Kitchen", "kind": "restaurant",
+      "area": "adhamiyah", "cuisines": ["iraqi"], "price": 1,
+      "address": "الأعظمية — موقع تقريبي (بيانات تجريبية)", "lat": 33.3702, "lng": 44.3722,
+      "hours": "يومياً ١٢ ظهراً – ١٠ ليلاً (تجريبي)",
+      "description": "مطبخ بيتي تجريبي: تمن ومرق ودولمة وباجة. بيانات تجريبية.",
+      "reviews": [ { "rating": 5, "comment": "مراجعة تجريبية: طعم بيتي أصيل." }, { "rating": 5, "comment": "مراجعة تجريبية: سعر ممتاز." } ]
+    },
+    {
+      "slug": "demo-harthiya-pizza", "name_ar": "بيتزا الحارثية", "name_en": "Harthiya Pizza", "kind": "restaurant",
+      "area": "harthiya", "cuisines": ["pizza", "italian"], "price": 2,
+      "address": "الحارثية — موقع تقريبي (بيانات تجريبية)", "lat": 33.3231, "lng": 44.3588,
+      "hours": "يومياً ١٢ ظهراً – ١٢ ليلاً (تجريبي)",
+      "description": "بيتزا تجريبية على الحطب مع عجينة مخمّرة. بيانات تجريبية لعرض التصميم.",
+      "reviews": [ { "rating": 4, "comment": "مراجعة تجريبية: عجينة خفيفة." }, { "rating": 4, "comment": "مراجعة تجريبية: خيارات كثيرة." } ]
+    },
+    {
+      "slug": "demo-warraqeen-cafe", "name_ar": "كافيه الوراقين", "name_en": "Warraqeen Cafe", "kind": "cafe",
+      "area": "arasat", "cuisines": ["coffee", "breakfast"], "price": 2,
+      "address": "العرصات — موقع تقريبي (بيانات تجريبية)", "lat": 33.3079, "lng": 44.3987,
+      "hours": "يومياً ٧ صباحاً – ١١ ليلاً (تجريبي)",
+      "description": "كافيه تجريبي بمكتبة صغيرة وفطور صباحي. بيانات تجريبية.",
+      "reviews": [ { "rating": 5, "comment": "مراجعة تجريبية: مكان رائع للقراءة." }, { "rating": 4, "comment": "مراجعة تجريبية: فطور جيد." } ]
+    },
+    {
+      "slug": "demo-new-sham", "name_ar": "الشام الجديد", "name_en": "New Sham", "kind": "restaurant",
+      "area": "yarmouk", "cuisines": ["levantine", "grills"], "price": 2,
+      "address": "اليرموك — موقع تقريبي (بيانات تجريبية)", "lat": 33.2988, "lng": 44.3451,
+      "hours": "يومياً ١٢ ظهراً – ١٢ ليلاً (تجريبي)",
+      "description": "مطعم شرقي تجريبي: شاورما ومقبلات وحمص. بيانات تجريبية لعرض التصميم.",
+      "reviews": [ { "rating": 4, "comment": "مراجعة تجريبية: شاورما طيبة." }, { "rating": 3, "comment": "مراجعة تجريبية: الخدمة متوسطة." } ]
+    },
+    {
+      "slug": "demo-noodles-baghdad", "name_ar": "نودلز بغداد", "name_en": "Baghdad Noodles", "kind": "restaurant",
+      "area": "mansour", "cuisines": ["asian"], "price": 2,
+      "address": "المنصور — موقع تقريبي (بيانات تجريبية)", "lat": 33.3189, "lng": 44.3441,
+      "hours": "يومياً ١٢ ظهراً – ١١ ليلاً (تجريبي)",
+      "description": "مطعم آسيوي تجريبي: نودلز وأرز مقلي وسوشي بسيط. بيانات تجريبية.",
+      "reviews": [ { "rating": 4, "comment": "مراجعة تجريبية: نكهات جيدة." }, { "rating": 5, "comment": "مراجعة تجريبية: نودلز حار ولذيذ." } ]
+    },
+    {
+      "slug": "demo-morning-breakfast", "name_ar": "فطور الصباح", "name_en": "Morning Breakfast", "kind": "restaurant",
+      "area": "karrada", "cuisines": ["breakfast", "iraqi"], "price": 1,
+      "address": "الكرادة — موقع تقريبي (بيانات تجريبية)", "lat": 33.2989, "lng": 44.4331,
+      "hours": "يومياً ٦ صباحاً – ٣ عصراً (تجريبي)",
+      "description": "فطور عراقي تجريبي: كاهي وقيمر وبيض ومعجنات. بيانات تجريبية.",
+      "reviews": [ { "rating": 5, "comment": "مراجعة تجريبية: أفضل بداية ليوم الجمعة." }, { "rating": 4, "comment": "مراجعة تجريبية: كاهي طازج." } ]
+    },
+    {
+      "slug": "demo-rafidain-sweets", "name_ar": "حلويات الرافدين", "name_en": "Rafidain Sweets", "kind": "cafe",
+      "area": "adhamiyah", "cuisines": ["dessert"], "price": 1,
+      "address": "الأعظمية — موقع تقريبي (بيانات تجريبية)", "lat": 33.3651, "lng": 44.3779,
+      "hours": "يومياً ١٠ صباحاً – ١١ ليلاً (تجريبي)",
+      "description": "محل حلويات تجريبي: كليجة وبقلاوة وكنافة. بيانات تجريبية لعرض التصميم.",
+      "reviews": [ { "rating": 5, "comment": "مراجعة تجريبية: كنافة ممتازة." }, { "rating": 4, "comment": "مراجعة تجريبية: حلويات طازجة." } ]
+    },
+    {
+      "slug": "demo-salad-health", "name_ar": "سلطة وصحة", "name_en": "Salad & Health", "kind": "restaurant",
+      "area": "harthiya", "cuisines": ["healthy"], "price": 2,
+      "address": "الحارثية — موقع تقريبي (بيانات تجريبية)", "lat": 33.3278, "lng": 44.3529,
+      "hours": "يومياً ١١ صباحاً – ١٠ ليلاً (تجريبي)",
+      "description": "مطعم صحي تجريبي: سلطات ووجبات خفيفة وعصائر طبيعية. بيانات تجريبية.",
+      "reviews": [ { "rating": 4, "comment": "مراجعة تجريبية: خيارات صحية متنوعة." }, { "rating": 4, "comment": "مراجعة تجريبية: العصائر منعشة." } ]
+    },
+    {
+      "slug": "demo-dora-masgouf", "name_ar": "مسكوف الدورة", "name_en": "Dora Masgouf", "kind": "restaurant",
+      "area": "dora", "cuisines": ["masgouf"], "price": 2,
+      "address": "الدورة — موقع تقريبي (بيانات تجريبية)", "lat": 33.2447, "lng": 44.3741,
+      "hours": "يومياً ٤ عصراً – ١٢ ليلاً (تجريبي)",
+      "description": "مطعم مسكوف تجريبي مشوي على الحطب مع سلطات. بيانات تجريبية.",
+      "reviews": [ { "rating": 5, "comment": "مراجعة تجريبية: مسكوف طازج." }, { "rating": 4, "comment": "مراجعة تجريبية: الانتظار طويل أحياناً." } ]
+    },
+    {
+      "slug": "demo-kadhimiya-roastery", "name_ar": "محمصة الكاظمية", "name_en": "Kadhimiya Roastery", "kind": "cafe",
+      "area": "kadhimiya", "cuisines": ["coffee"], "price": 1,
+      "address": "الكاظمية — موقع تقريبي (بيانات تجريبية)", "lat": 33.3811, "lng": 44.3377,
+      "hours": "يومياً ٨ صباحاً – ١٠ ليلاً (تجريبي)",
+      "description": "محمصة تجريبية للقهوة وحبوب البن المحمصة طازجاً. بيانات تجريبية.",
+      "reviews": [ { "rating": 4, "comment": "مراجعة تجريبية: رائحة القهوة تجذبك." }, { "rating": 5, "comment": "مراجعة تجريبية: بن عالي الجودة." } ]
+    },
+    {
+      "slug": "demo-jadriyah-prime-grills", "name_ar": "مشويات الجادرية الراقية", "name_en": "Jadriyah Prime Grills", "kind": "restaurant",
+      "area": "jadriyah", "cuisines": ["grills", "levantine"], "price": 4,
+      "address": "الجادرية — موقع تقريبي (بيانات تجريبية)", "lat": 33.2771, "lng": 44.3742,
+      "hours": "يومياً ١ ظهراً – ١٢ ليلاً (تجريبي)",
+      "description": "مطعم مشاوي فاخر تجريبي بتجربة عشاء راقية. بيانات تجريبية لعرض التصميم.",
+      "reviews": [ { "rating": 5, "comment": "مراجعة تجريبية: تجربة فاخرة." }, { "rating": 4, "comment": "مراجعة تجريبية: الأسعار مرتفعة لكن الجودة عالية." } ]
+    },
+    {
+      "slug": "demo-zayouna-pasta", "name_ar": "باستا زيونة", "name_en": "Zayouna Pasta", "kind": "restaurant",
+      "area": "zayouna", "cuisines": ["italian", "pizza"], "price": 3,
+      "address": "زيونة — موقع تقريبي (بيانات تجريبية)", "lat": 33.3311, "lng": 44.4549,
+      "hours": "يومياً ١٢ ظهراً – ١١ ليلاً (تجريبي)",
+      "description": "مطعم إيطالي تجريبي: باستا طازجة وريزوتو وتيراميسو. بيانات تجريبية.",
+      "reviews": [ { "rating": 4, "comment": "مراجعة تجريبية: باستا بصلصة رائعة." }, { "rating": 5, "comment": "مراجعة تجريبية: تيراميسو لا يُنسى." } ]
+    }
+  ]
+}
