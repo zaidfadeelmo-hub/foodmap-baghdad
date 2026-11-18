@@ -1,0 +1,37 @@
+
+name: Unpack FoodMap project
+
+on:
+  workflow_dispatch:
+  push:
+    paths:
+      - "foodmap-baghdad.zip"
+
+permissions:
+  contents: write
+
+jobs:
+  unpack:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Check out repository
+        uses: actions/checkout@v4
+
+      - name: Extract project files
+        run: |
+          unzip -q foodmap-baghdad.zip
+          test -f foodmap-baghdad/package.json
+          cp -R foodmap-baghdad/. .
+          rm -rf foodmap-baghdad
+          rm -f foodmap-baghdad.zip
+
+      - name: Commit extracted files
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add -A
+          if ! git diff --cached --quiet; then
+            git commit -m "Extract FoodMap Baghdad project"
+            git push
+          fi
