@@ -54,10 +54,10 @@ function cuisineSlugs(tags: Record<string, string>, available: Set<string>): str
   const map: Record<string, string> = {
     burger: 'burger', burgers: 'burger', pizza: 'pizza', italian: 'italian',
     sushi: 'asian', japanese: 'asian', chinese: 'asian', asian: 'asian',
-    seafood: 'fish', fish: 'fish', iraqi: 'iraqi', kebab: 'grill',
-    barbecue: 'grill', bbq: 'grill', coffee: 'coffee', breakfast: 'breakfast',
-    dessert: 'sweets', ice_cream: 'sweets', regional: 'eastern', levantine: 'eastern',
-    chicken: 'grill', sandwich: 'burger',
+    iraqi: 'iraqi', kebab: 'grills', barbecue: 'grills', bbq: 'grills',
+    coffee: 'coffee', breakfast: 'breakfast', dessert: 'dessert', ice_cream: 'dessert',
+    regional: 'levantine', levantine: 'levantine', middle_eastern: 'levantine',
+    chicken: 'grills', sandwich: 'burger', healthy: 'healthy',
   };
   const result = [...new Set(raw.map(x => map[x]).filter((x): x is string => Boolean(x && available.has(x))))];
   return result.slice(0, 4);
@@ -110,7 +110,8 @@ export async function POST(request: Request) {
 
     const fresh = candidates.filter(e => !existing.has(`${e.type}/${e.id}`));
     let insertedCount = 0;
-    const cuisineIds = new Map(cuisines.map(c => [c.slug, c.id]).filter((x): x is [string, string] => Boolean(x[1])));
+    const cuisineIds = new Map<string, string>();
+    for (const cuisine of cuisines) if (cuisine.id) cuisineIds.set(cuisine.slug, cuisine.id);
     for (let i = 0; i < fresh.length; i += 50) {
       const batch = fresh.slice(i, i + 50);
       const rows = batch.map(e => {
