@@ -2,6 +2,7 @@ import type { Metadata } from 'next';
 import { redirect } from 'next/navigation';
 import { adminDeleteImageAction, adminSetStatusAction } from '@/app/actions';
 import { ImageUploadForm } from '@/components/ImageUploadForm';
+import { OsmImportPanel } from '@/components/OsmImportPanel';
 import { DEMO_MESSAGE, isSupabaseConfigured } from '@/lib/config';
 import { getSessionUser, listForAdmin } from '@/lib/data';
 import type { Restaurant } from '@/lib/types';
@@ -78,6 +79,8 @@ export default async function AdminPage() {
         <h1>لوحة الإدارة</h1>
         <p className="muted">مرحباً {user.displayName}. راجع الاقتراحات وارفع الصور الحقيقية للمطاعم.</p>
       </div>
+
+      <OsmImportPanel />
 
       <section className="panel">
         <h2>اقتراحات بانتظار المراجعة ({pending.length})</h2>
