@@ -7,8 +7,10 @@ export const maxDuration = 60;
 
 const BBOX = '33.0,44.1,33.7,44.8'; // جنوب, غرب, شمال, شرق — نطاق بغداد التقريبي
 const ENDPOINTS = [
-  'https://overpass-api.de/api/interpreter',
-  'https://overpass.kumi.systems/api/interpreter',
+  // This public mirror is listed by the OpenStreetMap Wiki and has been
+  // reported to work when the two commonly used mirrors time out.
+  'https://maps.mail.ru/osm/tools/overpass/api/interpreter',
+  'https://overpass.private.coffee/api/interpreter',
 ];
 const BATCH_SIZE = 50;
 const PREVIEW_TAGS = [
@@ -29,10 +31,12 @@ type OsmElement = {
 async function fetchOsm(): Promise<OsmElement[]> {
   // Netlify must send response headers within 20 seconds. Keep the complete
   // upstream lookup comfortably below that platform response deadline.
-  const query = `[out:json][timeout:10];(nwr["amenity"~"^(restaurant|cafe|fast_food|food_court|ice_cream)$"](${BBOX}););out center tags;`;
+  const query = `[out:json][timeout:15];(nwr["amenity"~"^(restaurant|cafe|fast_food|food_court|ice_cream)$"](${BBOX}););out center tags;`;
   const startedAt = Date.now();
-  const totalBudgetMs = 12000;
-  const perEndpointTimeoutMs = 5500;
+  // Netlify requires response headers within 20 seconds. Reserve time for
+  // authentication, parsing, and the JSON response after both mirror attempts.
+  const totalBudgetMs = 16500;
+  const perEndpointTimeoutMs = 8000;
   let lastError = 'تعذّر الاتصال بمصدر OpenStreetMap.';
   for (const endpoint of ENDPOINTS) {
     const remainingMs = totalBudgetMs - (Date.now() - startedAt);
