@@ -64,15 +64,26 @@ function cuisineSlugs(tags: Record<string, string>, available: Set<string>): str
 }
 
 export async function POST(request: Request) {
-  const user = await getSessionUser();
-  if (!user || user.role !== 'admin') return NextResponse.json({ error: 'غير مصرّح.' }, { status: 403 });
-
-  let mode: string;
-  try { ({ mode } = await request.json()); } catch { return NextResponse.json({ error: 'طلب غير صالح.' }, { status: 400 }); }
-  if (mode !== 'preview' && mode !== 'import') return NextResponse.json({ error: 'وضع غير صالح.' }, { status: 400 });
-
+  let stage = 'التحقق من جلسة المدير';
   try {
+    const user = await getSessionUser();
+    if (!user || user.role !== 'admin') {
+      console.warn('[osm-import] request rejected: admin session missing');
+      return NextResponse.json({ error: 'غير مصرّح.' }, { status: 403 });
+    }
+
+    stage = 'قراءة الطلب';
+    let mode: string;
+    try { ({ mode } = await request.json()); } catch {
+      return NextResponse.json({ error: 'طلب غير صالح.' }, { status: 400 });
+    }
+    if (mode !== 'preview' && mode !== 'import') {
+      return NextResponse.json({ error: 'وضع غير صالح.' }, { status: 400 });
+    }
+
+    stage = 'الاتصال بمصدر OpenStreetMap';
     const elements = await fetchOsm();
+    console.info('[osm-import] source response received', { mode, elementCount: elements.length });
     const candidates = elements.filter(e => {
       const t = e.tags ?? {};
       const name = clean(t['name:ar']) ?? clean(t.name) ?? clean(t['name:en']);
@@ -95,6 +106,7 @@ export async function POST(request: Request) {
       });
     }
 
+    stage = 'الاتصال بقاعدة البيانات';
     const sb = await createClient();
     const { city, cuisines } = await getRefs();
     const availableCuisines = new Set(cuisines.map(c => c.slug));
@@ -151,6 +163,11 @@ export async function POST(request: Request) {
 
     return NextResponse.json({ imported: insertedCount, duplicates: candidates.length - fresh.length, found: candidates.length });
   } catch (error) {
-    return NextResponse.json({ error: error instanceof Error ? error.message : 'حدث خطأ أثناء الاستيراد.' }, { status: 502 });
+    const message = error instanceof Error ? error.message : 'حدث خطأ غير معروف.';
+    console.error('[osm-import] request failed', { stage, message });
+    return NextResponse.json({
+      error: message,
+      stage,
+    }, { status: 502 });
   }
 }
