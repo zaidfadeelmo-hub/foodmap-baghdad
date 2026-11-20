@@ -202,7 +202,6 @@ export async function POST(request: Request) {
         .upsert(links, { onConflict: 'restaurant_id,cuisine_id', ignoreDuplicates: true });
       if (linkError) console.error('[osm-import] cuisine link error', linkError.message);
     }
-    }
 
     return NextResponse.json({
       imported: insertedCount,
