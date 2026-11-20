@@ -147,10 +147,15 @@ export async function POST(request: Request) {
     const { city, cuisines } = await getRefs();
     const availableCuisines = new Set(cuisines.map(c => c.slug));
     const existing = new Set<string>();
+    const restaurantIds = new Map<string, string>();
     const { data: existingRows, error: existingError } = await sb.from('restaurants')
-      .select('osm_type,osm_id').in('osm_id', candidates.map(e => e.id));
+      .select('id,osm_type,osm_id').in('osm_id', candidates.map(e => e.id));
     if (existingError) throw new Error('تعذّر فحص المطاعم الموجودة. تأكد من تشغيل تحديث قاعدة البيانات.');
-    for (const row of existingRows ?? []) existing.add(`${row.osm_type}/${row.osm_id}`);
+    for (const row of existingRows ?? []) {
+      const identity = `${row.osm_type}/${row.osm_id}`;
+      existing.add(identity);
+      restaurantIds.set(identity, row.id);
+    }
 
     const fresh = candidates.filter(e => !existing.has(`${e.type}/${e.id}`));
     let insertedCount = 0;
@@ -178,20 +183,25 @@ export async function POST(request: Request) {
       const { data, error } = await sb.from('restaurants').insert(rows).select('id,osm_type,osm_id');
       if (error) throw new Error(`تعذّر حفظ دفعة من المطاعم: ${error.message}`);
       insertedCount = data?.length ?? 0;
-      const links: { restaurant_id: string; cuisine_id: string }[] = [];
-      const insertedByIdentity = new Map((data ?? []).map(row => [`${row.osm_type}/${row.osm_id}`, row.id]));
-      for (const element of fresh) {
-        const restaurantId = insertedByIdentity.get(`${element.type}/${element.id}`);
-        if (!restaurantId) continue;
-        for (const slug of cuisineSlugs(element.tags ?? {}, availableCuisines)) {
-          const cuisineId = cuisineIds.get(slug);
-          if (cuisineId) links.push({ restaurant_id: restaurantId, cuisine_id: cuisineId });
-        }
+      for (const row of data ?? []) restaurantIds.set(`${row.osm_type}/${row.osm_id}`, row.id);
+    }
+
+    // Rebuild category links for both new and already-imported rows.
+    // This makes retries safe even if a previous request timed out after inserting restaurants.
+    const links: { restaurant_id: string; cuisine_id: string }[] = [];
+    for (const element of candidates) {
+      const restaurantId = restaurantIds.get(`${element.type}/${element.id}`);
+      if (!restaurantId) continue;
+      for (const slug of cuisineSlugs(element.tags ?? {}, availableCuisines)) {
+        const cuisineId = cuisineIds.get(slug);
+        if (cuisineId) links.push({ restaurant_id: restaurantId, cuisine_id: cuisineId });
       }
-      if (links.length) {
-        const { error: linkError } = await sb.from('restaurant_cuisines').insert(links);
-        if (linkError) console.error('[osm-import] cuisine link error', linkError.message);
-      }
+    }
+    if (links.length) {
+      const { error: linkError } = await sb.from('restaurant_cuisines')
+        .upsert(links, { onConflict: 'restaurant_id,cuisine_id', ignoreDuplicates: true });
+      if (linkError) console.error('[osm-import] cuisine link error', linkError.message);
+    }
     }
 
     return NextResponse.json({
