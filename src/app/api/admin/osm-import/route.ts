@@ -10,6 +10,12 @@ const ENDPOINTS = [
   'https://overpass-api.de/api/interpreter',
   'https://overpass.kumi.systems/api/interpreter',
 ];
+const BATCH_SIZE = 50;
+const PREVIEW_TAGS = [
+  'amenity', 'cuisine', 'name', 'name:ar', 'name:en',
+  'addr:street', 'addr:housenumber', 'addr:suburb', 'addr:city',
+  'phone', 'contact:phone', 'contact:instagram', 'instagram', 'opening_hours',
+] as const;
 
 type OsmElement = {
   type: 'node' | 'way' | 'relation';
@@ -63,6 +69,14 @@ function cuisineSlugs(tags: Record<string, string>, available: Set<string>): str
   return result.slice(0, 4);
 }
 
+function isOsmElement(value: unknown): value is OsmElement {
+  if (!value || typeof value !== 'object') return false;
+  const item = value as Partial<OsmElement>;
+  return (item.type === 'node' || item.type === 'way' || item.type === 'relation')
+    && Number.isSafeInteger(item.id) && (item.id ?? 0) > 0
+    && Boolean(item.tags && typeof item.tags === 'object');
+}
+
 export async function POST(request: Request) {
   let stage = 'التحقق من جلسة المدير';
   try {
@@ -73,17 +87,30 @@ export async function POST(request: Request) {
     }
 
     stage = 'قراءة الطلب';
-    let mode: string;
-    try { ({ mode } = await request.json()); } catch {
+    let body: { mode?: string; elements?: unknown[] };
+    try { body = await request.json(); } catch {
       return NextResponse.json({ error: 'طلب غير صالح.' }, { status: 400 });
     }
+    const mode = body.mode;
     if (mode !== 'preview' && mode !== 'import') {
       return NextResponse.json({ error: 'وضع غير صالح.' }, { status: 400 });
     }
 
-    stage = 'الاتصال بمصدر OpenStreetMap';
-    const elements = await fetchOsm();
-    console.info('[osm-import] source response received', { mode, elementCount: elements.length });
+    let elements: OsmElement[];
+    if (mode === 'preview') {
+      stage = 'الاتصال بمصدر OpenStreetMap';
+      elements = await fetchOsm();
+    } else {
+      if (!Array.isArray(body.elements) || body.elements.length === 0 || body.elements.length > BATCH_SIZE) {
+        return NextResponse.json({ error: `يجب إرسال دفعة بين 1 و${BATCH_SIZE} مكاناً.` }, { status: 400 });
+      }
+      if (!body.elements.every(isOsmElement)) {
+        return NextResponse.json({ error: 'تحتوي الدفعة على بيانات مكان غير صالحة.' }, { status: 400 });
+      }
+      elements = body.elements;
+    }
+
+    console.info('[osm-import] source/batch received', { mode, elementCount: elements.length });
     const candidates = elements.filter(e => {
       const t = e.tags ?? {};
       const name = clean(t['name:ar']) ?? clean(t.name) ?? clean(t['name:en']);
@@ -93,6 +120,14 @@ export async function POST(request: Request) {
     });
 
     if (mode === 'preview') {
+      const compact = candidates.map(e => ({
+        type: e.type,
+        id: e.id,
+        ...(e.lat !== undefined ? { lat: e.lat } : {}),
+        ...(e.lon !== undefined ? { lon: e.lon } : {}),
+        ...(e.center ? { center: e.center } : {}),
+        tags: Object.fromEntries(PREVIEW_TAGS.filter(key => e.tags?.[key]).map(key => [key, e.tags![key]])),
+      }));
       return NextResponse.json({
         total: candidates.length,
         categories: candidates.reduce((acc, e) => {
@@ -103,6 +138,7 @@ export async function POST(request: Request) {
           type: e.tags?.amenity,
           address: [e.tags?.['addr:street'], e.tags?.['addr:suburb'], e.tags?.['addr:city']].filter(Boolean).join('، '),
         })),
+        candidates: compact,
       });
     }
 
@@ -110,23 +146,19 @@ export async function POST(request: Request) {
     const sb = await createClient();
     const { city, cuisines } = await getRefs();
     const availableCuisines = new Set(cuisines.map(c => c.slug));
-    const ids = candidates.map(e => `${e.type}/${e.id}`);
     const existing = new Set<string>();
-    for (let i = 0; i < ids.length; i += 150) {
-      const slice = ids.slice(i, i + 150);
-      const { data, error } = await sb.from('restaurants').select('osm_type,osm_id')
-        .in('osm_id', slice.map(x => Number(x.split('/')[1])));
-      if (error) throw new Error('تعذّر فحص المطاعم الموجودة. تأكد من تشغيل تحديث قاعدة البيانات.');
-      for (const row of data ?? []) existing.add(`${row.osm_type}/${row.osm_id}`);
-    }
+    const { data: existingRows, error: existingError } = await sb.from('restaurants')
+      .select('osm_type,osm_id').in('osm_id', candidates.map(e => e.id));
+    if (existingError) throw new Error('تعذّر فحص المطاعم الموجودة. تأكد من تشغيل تحديث قاعدة البيانات.');
+    for (const row of existingRows ?? []) existing.add(`${row.osm_type}/${row.osm_id}`);
 
     const fresh = candidates.filter(e => !existing.has(`${e.type}/${e.id}`));
     let insertedCount = 0;
     const cuisineIds = new Map<string, string>();
     for (const cuisine of cuisines) if (cuisine.id) cuisineIds.set(cuisine.slug, cuisine.id);
-    for (let i = 0; i < fresh.length; i += 50) {
-      const batch = fresh.slice(i, i + 50);
-      const rows = batch.map(e => {
+
+    if (fresh.length) {
+      const rows = fresh.map(e => {
         const t = e.tags ?? {};
         const name = clean(t['name:ar'], 120) ?? clean(t.name, 120) ?? clean(t['name:en'], 120)!;
         const lat = e.lat ?? e.center!.lat;
@@ -145,29 +177,31 @@ export async function POST(request: Request) {
       });
       const { data, error } = await sb.from('restaurants').insert(rows).select('id,osm_type,osm_id');
       if (error) throw new Error(`تعذّر حفظ دفعة من المطاعم: ${error.message}`);
-      insertedCount += data?.length ?? 0;
+      insertedCount = data?.length ?? 0;
       const links: { restaurant_id: string; cuisine_id: string }[] = [];
-      for (let j = 0; j < batch.length; j++) {
-        const slugs = cuisineSlugs(batch[j].tags ?? {}, availableCuisines);
-        for (const slug of slugs) {
+      const insertedByIdentity = new Map((data ?? []).map(row => [`${row.osm_type}/${row.osm_id}`, row.id]));
+      for (const element of fresh) {
+        const restaurantId = insertedByIdentity.get(`${element.type}/${element.id}`);
+        if (!restaurantId) continue;
+        for (const slug of cuisineSlugs(element.tags ?? {}, availableCuisines)) {
           const cuisineId = cuisineIds.get(slug);
-          const restaurantId = data?.[j]?.id;
-          if (cuisineId && restaurantId) links.push({ restaurant_id: restaurantId, cuisine_id: cuisineId });
+          if (cuisineId) links.push({ restaurant_id: restaurantId, cuisine_id: cuisineId });
         }
       }
       if (links.length) {
         const { error: linkError } = await sb.from('restaurant_cuisines').insert(links);
-        if (linkError) console.error('OSM cuisine link error', linkError.message);
+        if (linkError) console.error('[osm-import] cuisine link error', linkError.message);
       }
     }
 
-    return NextResponse.json({ imported: insertedCount, duplicates: candidates.length - fresh.length, found: candidates.length });
+    return NextResponse.json({
+      imported: insertedCount,
+      duplicates: candidates.length - fresh.length,
+      found: candidates.length,
+    });
   } catch (error) {
     const message = error instanceof Error ? error.message : 'حدث خطأ غير معروف.';
     console.error('[osm-import] request failed', { stage, message });
-    return NextResponse.json({
-      error: message,
-      stage,
-    }, { status: 502 });
+    return NextResponse.json({ error: message, stage }, { status: 502 });
   }
 }
