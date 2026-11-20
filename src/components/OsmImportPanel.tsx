@@ -18,8 +18,22 @@ export function OsmImportPanel() {
         method: 'POST', headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ mode }),
       });
-      const data = await response.json();
-      if (!response.ok) throw new Error(data.error ?? 'تعذّر إكمال الطلب.');
+      const raw = await response.text();
+      let data: (Preview & Partial<Result> & { error?: string; stage?: string }) | null = null;
+      try {
+        data = raw ? JSON.parse(raw) : null;
+      } catch {
+        const contentType = response.headers.get('content-type') ?? 'unknown';
+        throw new Error(
+          `الخادم رد بحالة HTTP ${response.status} ولم يُرجع JSON (نوع الرد: ${contentType}).`
+        );
+      }
+      if (!response.ok) {
+        const detail = data?.error ?? 'لم يرسل الخادم تفاصيل إضافية.';
+        const stage = data?.stage ? ` — المرحلة: ${data.stage}` : '';
+        throw new Error(`HTTP ${response.status}: ${detail}${stage}`);
+      }
+      if (!data) throw new Error('الخادم أرسل رداً فارغاً.');
       if (mode === 'preview') setPreview(data as Preview);
       else { setResult(data as Result); setPreview(null); }
     } catch (e) {
