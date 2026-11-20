@@ -7,9 +7,17 @@ export const maxDuration = 60;
 
 const BBOX = '33.0,44.1,33.7,44.8'; // جنوب, غرب, شمال, شرق — نطاق بغداد التقريبي
 const ENDPOINTS = [
-  'https://overpass-api.de/api/interpreter',
-  'https://overpass.kumi.systems/api/interpreter',
+  // This public mirror is listed by the OpenStreetMap Wiki and has been
+  // reported to work when the two commonly used mirrors time out.
+  'https://maps.mail.ru/osm/tools/overpass/api/interpreter',
+  'https://overpass.private.coffee/api/interpreter',
 ];
+const BATCH_SIZE = 50;
+const PREVIEW_TAGS = [
+  'amenity', 'cuisine', 'name', 'name:ar', 'name:en',
+  'addr:street', 'addr:housenumber', 'addr:suburb', 'addr:city',
+  'phone', 'contact:phone', 'contact:instagram', 'instagram', 'opening_hours',
+] as const;
 
 type OsmElement = {
   type: 'node' | 'way' | 'relation';
@@ -21,27 +29,37 @@ type OsmElement = {
 };
 
 async function fetchOsm(): Promise<OsmElement[]> {
-  const query = `[out:json][timeout:45];(nwr["amenity"~"^(restaurant|cafe|fast_food|food_court|ice_cream)$"](${BBOX}););out center tags;`;
+  // Netlify must send response headers within 20 seconds. Keep the complete
+  // upstream lookup comfortably below that platform response deadline.
+  const query = `[out:json][timeout:15];(nwr["amenity"~"^(restaurant|cafe|fast_food|food_court|ice_cream)$"](${BBOX}););out center tags;`;
+  const startedAt = Date.now();
+  // Netlify requires response headers within 20 seconds. Reserve time for
+  // authentication, parsing, and the JSON response after both mirror attempts.
+  const totalBudgetMs = 16500;
+  const perEndpointTimeoutMs = 8000;
   let lastError = 'تعذّر الاتصال بمصدر OpenStreetMap.';
   for (const endpoint of ENDPOINTS) {
+    const remainingMs = totalBudgetMs - (Date.now() - startedAt);
+    if (remainingMs <= 500) break;
     try {
       const response = await fetch(endpoint, {
         method: 'POST',
         headers: { 'Content-Type': 'application/x-www-form-urlencoded;charset=UTF-8', 'User-Agent': 'FoodMapBaghdad/1.0 (restaurant directory)' },
         body: new URLSearchParams({ data: query }),
-        signal: AbortSignal.timeout(50000),
+        signal: AbortSignal.timeout(Math.min(perEndpointTimeoutMs, remainingMs - 250)),
         cache: 'no-store',
       });
       if (!response.ok) { lastError = `مصدر الخرائط أعاد الحالة ${response.status}.`; continue; }
       const json = await response.json();
-      return Array.isArray(json.elements) ? json.elements : [];
+      if (!Array.isArray(json.elements)) throw new Error('استجابة OpenStreetMap لا تحتوي على قائمة أماكن صالحة.');
+      return json.elements;
     } catch (error) {
       lastError = error instanceof Error && error.name === 'TimeoutError'
-        ? 'انتهت مهلة الاتصال بمصدر الخرائط. حاول بعد قليل.'
-        : 'تعذّر الاتصال بمصدر OpenStreetMap. حاول بعد قليل.';
+        ? 'تجاوز مصدر الخرائط مهلة الاتصال القصيرة. حاول الفحص مرة أخرى بعد قليل.'
+        : error instanceof Error ? error.message : 'تعذّر الاتصال بمصدر OpenStreetMap.';
     }
   }
-  throw new Error(lastError);
+  throw new Error(`${lastError} انتهت مهلة فحص المصدر قبل أن تنتهي مهلة الخادم.`);
 }
 
 function clean(value?: string, max = 500): string | null {
@@ -63,16 +81,48 @@ function cuisineSlugs(tags: Record<string, string>, available: Set<string>): str
   return result.slice(0, 4);
 }
 
+function isOsmElement(value: unknown): value is OsmElement {
+  if (!value || typeof value !== 'object') return false;
+  const item = value as Partial<OsmElement>;
+  return (item.type === 'node' || item.type === 'way' || item.type === 'relation')
+    && Number.isSafeInteger(item.id) && (item.id ?? 0) > 0
+    && Boolean(item.tags && typeof item.tags === 'object');
+}
+
 export async function POST(request: Request) {
-  const user = await getSessionUser();
-  if (!user || user.role !== 'admin') return NextResponse.json({ error: 'غير مصرّح.' }, { status: 403 });
-
-  let mode: string;
-  try { ({ mode } = await request.json()); } catch { return NextResponse.json({ error: 'طلب غير صالح.' }, { status: 400 }); }
-  if (mode !== 'preview' && mode !== 'import') return NextResponse.json({ error: 'وضع غير صالح.' }, { status: 400 });
-
+  let stage = 'التحقق من جلسة المدير';
   try {
-    const elements = await fetchOsm();
+    const user = await getSessionUser();
+    if (!user || user.role !== 'admin') {
+      console.warn('[osm-import] request rejected: admin session missing');
+      return NextResponse.json({ error: 'غير مصرّح.' }, { status: 403 });
+    }
+
+    stage = 'قراءة الطلب';
+    let body: { mode?: string; elements?: unknown[] };
+    try { body = await request.json(); } catch {
+      return NextResponse.json({ error: 'طلب غير صالح.' }, { status: 400 });
+    }
+    const mode = body.mode;
+    if (mode !== 'preview' && mode !== 'import') {
+      return NextResponse.json({ error: 'وضع غير صالح.' }, { status: 400 });
+    }
+
+    let elements: OsmElement[];
+    if (mode === 'preview') {
+      stage = 'الاتصال بمصدر OpenStreetMap';
+      elements = await fetchOsm();
+    } else {
+      if (!Array.isArray(body.elements) || body.elements.length === 0 || body.elements.length > BATCH_SIZE) {
+        return NextResponse.json({ error: `يجب إرسال دفعة بين 1 و${BATCH_SIZE} مكاناً.` }, { status: 400 });
+      }
+      if (!body.elements.every(isOsmElement)) {
+        return NextResponse.json({ error: 'تحتوي الدفعة على بيانات مكان غير صالحة.' }, { status: 400 });
+      }
+      elements = body.elements;
+    }
+
+    console.info('[osm-import] source/batch received', { mode, elementCount: elements.length });
     const candidates = elements.filter(e => {
       const t = e.tags ?? {};
       const name = clean(t['name:ar']) ?? clean(t.name) ?? clean(t['name:en']);
@@ -82,6 +132,14 @@ export async function POST(request: Request) {
     });
 
     if (mode === 'preview') {
+      const compact = candidates.map(e => ({
+        type: e.type,
+        id: e.id,
+        ...(e.lat !== undefined ? { lat: e.lat } : {}),
+        ...(e.lon !== undefined ? { lon: e.lon } : {}),
+        ...(e.center ? { center: e.center } : {}),
+        tags: Object.fromEntries(PREVIEW_TAGS.filter(key => e.tags?.[key]).map(key => [key, e.tags![key]])),
+      }));
       return NextResponse.json({
         total: candidates.length,
         categories: candidates.reduce((acc, e) => {
@@ -92,29 +150,32 @@ export async function POST(request: Request) {
           type: e.tags?.amenity,
           address: [e.tags?.['addr:street'], e.tags?.['addr:suburb'], e.tags?.['addr:city']].filter(Boolean).join('، '),
         })),
+        candidates: compact,
       });
     }
 
+    stage = 'الاتصال بقاعدة البيانات';
     const sb = await createClient();
     const { city, cuisines } = await getRefs();
     const availableCuisines = new Set(cuisines.map(c => c.slug));
-    const ids = candidates.map(e => `${e.type}/${e.id}`);
     const existing = new Set<string>();
-    for (let i = 0; i < ids.length; i += 150) {
-      const slice = ids.slice(i, i + 150);
-      const { data, error } = await sb.from('restaurants').select('osm_type,osm_id')
-        .in('osm_id', slice.map(x => Number(x.split('/')[1])));
-      if (error) throw new Error('تعذّر فحص المطاعم الموجودة. تأكد من تشغيل تحديث قاعدة البيانات.');
-      for (const row of data ?? []) existing.add(`${row.osm_type}/${row.osm_id}`);
+    const restaurantIds = new Map<string, string>();
+    const { data: existingRows, error: existingError } = await sb.from('restaurants')
+      .select('id,osm_type,osm_id').in('osm_id', candidates.map(e => e.id));
+    if (existingError) throw new Error('تعذّر فحص المطاعم الموجودة. تأكد من تشغيل تحديث قاعدة البيانات.');
+    for (const row of existingRows ?? []) {
+      const identity = `${row.osm_type}/${row.osm_id}`;
+      existing.add(identity);
+      restaurantIds.set(identity, row.id);
     }
 
     const fresh = candidates.filter(e => !existing.has(`${e.type}/${e.id}`));
     let insertedCount = 0;
     const cuisineIds = new Map<string, string>();
     for (const cuisine of cuisines) if (cuisine.id) cuisineIds.set(cuisine.slug, cuisine.id);
-    for (let i = 0; i < fresh.length; i += 50) {
-      const batch = fresh.slice(i, i + 50);
-      const rows = batch.map(e => {
+
+    if (fresh.length) {
+      const rows = fresh.map(e => {
         const t = e.tags ?? {};
         const name = clean(t['name:ar'], 120) ?? clean(t.name, 120) ?? clean(t['name:en'], 120)!;
         const lat = e.lat ?? e.center!.lat;
@@ -133,24 +194,35 @@ export async function POST(request: Request) {
       });
       const { data, error } = await sb.from('restaurants').insert(rows).select('id,osm_type,osm_id');
       if (error) throw new Error(`تعذّر حفظ دفعة من المطاعم: ${error.message}`);
-      insertedCount += data?.length ?? 0;
-      const links: { restaurant_id: string; cuisine_id: string }[] = [];
-      for (let j = 0; j < batch.length; j++) {
-        const slugs = cuisineSlugs(batch[j].tags ?? {}, availableCuisines);
-        for (const slug of slugs) {
-          const cuisineId = cuisineIds.get(slug);
-          const restaurantId = data?.[j]?.id;
-          if (cuisineId && restaurantId) links.push({ restaurant_id: restaurantId, cuisine_id: cuisineId });
-        }
-      }
-      if (links.length) {
-        const { error: linkError } = await sb.from('restaurant_cuisines').insert(links);
-        if (linkError) console.error('OSM cuisine link error', linkError.message);
-      }
+      insertedCount = data?.length ?? 0;
+      for (const row of data ?? []) restaurantIds.set(`${row.osm_type}/${row.osm_id}`, row.id);
     }
 
-    return NextResponse.json({ imported: insertedCount, duplicates: candidates.length - fresh.length, found: candidates.length });
+    // Rebuild category links for both new and already-imported rows.
+    // This makes retries safe even if a previous request timed out after inserting restaurants.
+    const links: { restaurant_id: string; cuisine_id: string }[] = [];
+    for (const element of candidates) {
+      const restaurantId = restaurantIds.get(`${element.type}/${element.id}`);
+      if (!restaurantId) continue;
+      for (const slug of cuisineSlugs(element.tags ?? {}, availableCuisines)) {
+        const cuisineId = cuisineIds.get(slug);
+        if (cuisineId) links.push({ restaurant_id: restaurantId, cuisine_id: cuisineId });
+      }
+    }
+    if (links.length) {
+      const { error: linkError } = await sb.from('restaurant_cuisines')
+        .upsert(links, { onConflict: 'restaurant_id,cuisine_id', ignoreDuplicates: true });
+      if (linkError) console.error('[osm-import] cuisine link error', linkError.message);
+    }
+
+    return NextResponse.json({
+      imported: insertedCount,
+      duplicates: candidates.length - fresh.length,
+      found: candidates.length,
+    });
   } catch (error) {
-    return NextResponse.json({ error: error instanceof Error ? error.message : 'حدث خطأ أثناء الاستيراد.' }, { status: 502 });
+    const message = error instanceof Error ? error.message : 'حدث خطأ غير معروف.';
+    console.error('[osm-import] request failed', { stage, message });
+    return NextResponse.json({ error: message, stage }, { status: 502 });
   }
 }
