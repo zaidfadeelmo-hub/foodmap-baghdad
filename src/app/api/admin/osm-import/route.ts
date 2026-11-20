@@ -27,27 +27,35 @@ type OsmElement = {
 };
 
 async function fetchOsm(): Promise<OsmElement[]> {
-  const query = `[out:json][timeout:45];(nwr["amenity"~"^(restaurant|cafe|fast_food|food_court|ice_cream)$"](${BBOX}););out center tags;`;
+  // Netlify must send response headers within 20 seconds. Keep the complete
+  // upstream lookup comfortably below that platform response deadline.
+  const query = `[out:json][timeout:10];(nwr["amenity"~"^(restaurant|cafe|fast_food|food_court|ice_cream)$"](${BBOX}););out center tags;`;
+  const startedAt = Date.now();
+  const totalBudgetMs = 12000;
+  const perEndpointTimeoutMs = 5500;
   let lastError = 'تعذّر الاتصال بمصدر OpenStreetMap.';
   for (const endpoint of ENDPOINTS) {
+    const remainingMs = totalBudgetMs - (Date.now() - startedAt);
+    if (remainingMs <= 500) break;
     try {
       const response = await fetch(endpoint, {
         method: 'POST',
         headers: { 'Content-Type': 'application/x-www-form-urlencoded;charset=UTF-8', 'User-Agent': 'FoodMapBaghdad/1.0 (restaurant directory)' },
         body: new URLSearchParams({ data: query }),
-        signal: AbortSignal.timeout(50000),
+        signal: AbortSignal.timeout(Math.min(perEndpointTimeoutMs, remainingMs - 250)),
         cache: 'no-store',
       });
       if (!response.ok) { lastError = `مصدر الخرائط أعاد الحالة ${response.status}.`; continue; }
       const json = await response.json();
-      return Array.isArray(json.elements) ? json.elements : [];
+      if (!Array.isArray(json.elements)) throw new Error('استجابة OpenStreetMap لا تحتوي على قائمة أماكن صالحة.');
+      return json.elements;
     } catch (error) {
       lastError = error instanceof Error && error.name === 'TimeoutError'
-        ? 'انتهت مهلة الاتصال بمصدر الخرائط. حاول بعد قليل.'
-        : 'تعذّر الاتصال بمصدر OpenStreetMap. حاول بعد قليل.';
+        ? 'تجاوز مصدر الخرائط مهلة الاتصال القصيرة. حاول الفحص مرة أخرى بعد قليل.'
+        : error instanceof Error ? error.message : 'تعذّر الاتصال بمصدر OpenStreetMap.';
     }
   }
-  throw new Error(lastError);
+  throw new Error(`${lastError} انتهت مهلة فحص المصدر قبل أن تنتهي مهلة الخادم.`);
 }
 
 function clean(value?: string, max = 500): string | null {
