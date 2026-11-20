@@ -19,6 +19,67 @@ type Preview = {
 type Result = { imported: number; duplicates: number; found: number };
 
 const BATCH_SIZE = 50;
+const OVERPASS_ENDPOINTS = [
+  'https://overpass.private.coffee/api/interpreter',
+  'https://overpass-api.de/api/interpreter',
+];
+const BAGHDAD_BBOX = '33.0,44.1,33.7,44.8';
+
+async function fetchPreviewFromBrowser(): Promise<Preview> {
+  const query = `[out:json][timeout:60];(nwr["amenity"~"^(restaurant|cafe|fast_food|food_court|ice_cream)$"](${BAGHDAD_BBOX}););out center tags;`;
+  let lastError = 'تعذّر الاتصال بمصادر OpenStreetMap.';
+  for (const endpoint of OVERPASS_ENDPOINTS) {
+    try {
+      const response = await fetch(endpoint, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/x-www-form-urlencoded;charset=UTF-8' },
+        body: new URLSearchParams({ data: query }),
+        signal: AbortSignal.timeout(90000),
+        cache: 'no-store',
+      });
+      if (!response.ok) {
+        lastError = `مصدر الخرائط أعاد الحالة ${response.status}.`;
+        continue;
+      }
+      const data = await response.json();
+      if (!Array.isArray(data.elements)) throw new Error('استجابة OpenStreetMap غير صالحة.');
+      const candidates = data.elements.filter((item: any) => {
+        const tags = item.tags ?? {};
+        const name = tags['name:ar'] || tags.name || tags['name:en'];
+        const lat = item.lat ?? item.center?.lat;
+        const lon = item.lon ?? item.center?.lon;
+        return Boolean(name && Number.isFinite(lat) && Number.isFinite(lon));
+      }).map((item: any) => ({
+        type: item.type,
+        id: item.id,
+        ...(item.lat !== undefined ? { lat: item.lat } : {}),
+        ...(item.lon !== undefined ? { lon: item.lon } : {}),
+        ...(item.center ? { center: item.center } : {}),
+        tags: item.tags ?? {},
+      })) as OsmCandidate[];
+      const categories = candidates.reduce((acc, item) => {
+        const key = item.tags.amenity ?? 'other';
+        acc[key] = (acc[key] ?? 0) + 1;
+        return acc;
+      }, {} as Record<string, number>);
+      return {
+        total: candidates.length,
+        categories,
+        sample: candidates.slice(0, 8).map(item => ({
+          name: item.tags['name:ar'] || item.tags.name || item.tags['name:en'],
+          type: item.tags.amenity || 'غير محدد',
+          address: [item.tags['addr:street'], item.tags['addr:suburb'], item.tags['addr:city']].filter(Boolean).join('، '),
+        })),
+        candidates,
+      };
+    } catch (error) {
+      lastError = error instanceof Error
+        ? error.name === 'TimeoutError' ? 'انتهت مهلة الاتصال بمصدر الخرائط.' : error.message
+        : 'تعذّر الاتصال بمصدر OpenStreetMap.';
+    }
+  }
+  throw new Error(`${lastError} جرّب الفحص لاحقاً أو استخدم اتصال إنترنت آخر.`);
+}
 
 async function readResponse(response: Response): Promise<any> {
   const raw = await response.text();
@@ -46,11 +107,7 @@ export function OsmImportPanel() {
   async function loadPreview() {
     setBusy(true); setError(''); setResult(null); setProgress(0);
     try {
-      const response = await fetch('/api/admin/osm-import', {
-        method: 'POST', headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ mode: 'preview' }),
-      });
-      const data = await readResponse(response) as Preview;
+      const data = await fetchPreviewFromBrowser();
       if (!Array.isArray(data.candidates)) throw new Error('النسخة المستلمة لا تحتوي على قائمة المطاعم. أعد الفحص.');
       setPreview(data);
     } catch (e) {
