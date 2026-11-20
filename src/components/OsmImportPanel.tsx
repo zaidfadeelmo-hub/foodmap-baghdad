@@ -29,7 +29,7 @@ export function OsmImportPanel() {
         );
       }
       if (!response.ok) {
-        const detail = data?.error ?? 'لم يرسل الخادم تفاصيل إضافية.';
+        const detail = data?.error ?? (raw.trim() ? `رد الخادم: ${raw.trim().slice(0, 1200)}` : 'الخادم أرسل رداً فارغاً.');
         const stage = data?.stage ? ` — المرحلة: ${data.stage}` : '';
         throw new Error(`HTTP ${response.status}: ${detail}${stage}`);
       }
